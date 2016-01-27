@@ -1,59 +1,100 @@
 use std::io::{BufRead,BufReader,Read,stdin};
+use std::env;
+use std::fs::File;
 
 #[doc="
-Counts the frequencies of words read from the standard input, and print
-a sorted frequency table.
+    Takes in a training file as argument, and counts the frequencies of the words in the training
+    file.
+    Then takes in inputs from stdin, and finds the 'nearest' correction to each word and prints it. 
+    If the word already seems to be a correct word, it won't correct it. 
+    If the word doesn't have any corrections available, '-' will be printed.
 
 Author: James Whang (syw973, sungyoonwhang2017@u.northwestern.edu)
 
 Assumptions:
-    
-    - Punctuations ( , | . | ! | ? ) are stripped
-        ex) 'hello, world' gives the same result as 'hello world!'
-    - All words are lowercased
-    - Quotations will be also stripped
-    - Words containing quotes will be regarded as a single word.
-        ex1) I'm != I m
-        ex2) I'm == Im 
-    - Dashes won't be stripped (-, --, whatever)
+    Training file doesn't have typos
+    One word per line in the input text to be corrected
 "]
-fn main() {
 
-    let args: Vec<_> = std::env::args().collect();
+type CountTable = std::collections::HashMap<String, usize>;
+type Candidates = std::vec::Vec<String>;
+type Edits = std::collections::HashSet<String>;
+
+fn main() {
+    let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
         panic!("Usage: ./correct [train file] ")
     }
-    let f = std::fs::File::open(&args[1]).expect("Error opening training file ");
-    let mut table = produce_output(&form_table(f)); 
+    let f = File::open(&args[1]).expect("Error opening training file ");
+    let table = form_table(f); 
 
-    correct(stdin());
-
+    correct(stdin(), table);
 }
 
-fn correct<R: Read>(reader: R) () {
+fn correct<R: Read>(reader: R, table: CountTable) {
     let mut lines = BufReader::new(reader).lines();
 
-    while let Some(Ok(line)) = lines.next() {
-    }
-}
-
-/*
-
-fn is_deletion_by_one(correct: String, test: String) -> bool {
-    if correct.len() != (test.len() + 1) {
-        return false;
-    }
-    let correct_str = &correct;
-    let test_str = &test;
-
-    for x in 0..correct.len() {
-        if test_str[x] != correct_str[x] {
-            return false;
+    while let Some(Ok(word)) = lines.next() {
+        if table.contains_key(&word) {
+            println!("{}", word);
         }
+        let candidates = edits_one(word);
     }
-    return true;
 }
-*/
+
+fn edits_one(word: String) -> Edits {
+    let mut deletes = Edits::new();
+    let mut replaces = Edits::new();
+    let mut inserts = Edits::new();
+    let mut cand = Edits::new();
+    let mut word_s = word.clone();
+    let alphabet = "abcdefghijklmnopqrstuvwxyz";
+
+    deletes 
+}
+
+fn find_deletions(word: String) -> Edits {
+    let mut edits = Edits::new();
+    let mut deleted: String;
+
+    for i in 0..word.len() - 1 as usize {
+        deleted = (&word[..i]).to_string();
+        deleted = deleted + &word[i + (1 as usize) ..];
+        edits.insert(deleted.clone());
+    }
+    edits
+}
+
+
+fn find_replacements(word: String) -> Edits {
+    let mut edits = Edits::new(); 
+    edits
+    // TODO
+}
+
+fn find_insertions(word: String) -> Edits {
+    let mut edits = Edits::new();
+    edits
+}
+
+fn find_transpositions(word: String) -> Edits {
+    let mut edits = Edits::new();
+    let mut transposed: String;
+    let mut characters: Vec<char> = vec![];
+
+    for c in word.chars() {
+        characters.push(c);
+    }
+
+    for i in 0..word.len() - 1 as usize {
+        transposed = (&word[..i]).to_string();
+        transposed.push(characters[i + (1 as usize)]);
+        transposed.push(characters[i]);
+        transposed = transposed + &word[i + (2 as usize)..];
+        edits.insert(transposed.clone());
+    }
+    edits
+}
 
 fn parse_input(input: String) -> String {
     // These should get deleted from original string
@@ -85,7 +126,6 @@ fn form_table<R: Read>(reader: R) -> CountTable {
     return table
 }
 
-type CountTable = std::collections::HashMap<String, usize>;
 
 #[allow(dead_code)]
 fn increment_word(map: &mut CountTable, word: String) {
@@ -99,7 +139,7 @@ mod form_table_tests {
 
     #[test]
     fn form_table_test_basic_1() {
-        let table = form_table("Hello, world!");
+        let table = make_test_table("Hello, world!");
         assert_saved(&table, "world", 1);
         assert_saved(&table, "hello", 1);
         assert_none(&table, "hellooo");
@@ -107,7 +147,7 @@ mod form_table_tests {
 
     #[test]
     fn form_table_test_basic_2() {
-        let table = form_table("Of the dogs, By the dogs, For the dogs");
+        let table = make_test_table("Of the dogs, By the dogs, For the dogs");
         assert_saved(&table, "dogs", 3);
         assert_saved(&table, "the", 3);
         assert_saved(&table, "of", 1);
@@ -116,11 +156,11 @@ mod form_table_tests {
 
     #[test]
     fn form_table_test_empty() {
-        let table = form_table("");
+        let table = make_test_table("");
         assert_none(&table, "Hi");
     }
 
-    fn form_table(input: &str) -> CountTable {
+    fn make_test_table(input: &str) -> CountTable {
         let mock_read = StringReader::new(input.to_owned());
         form_table(mock_read)
     }
@@ -191,6 +231,7 @@ mod parse_input_tests {
     }
 }
 
+
 #[cfg(test)]
 mod increment_word_tests {
     use super::{increment_word, CountTable};
@@ -236,6 +277,48 @@ mod increment_word_tests {
         assert_eq!(Some(&3), h.get("three"));
         assert_eq!(2, h.len());
         h
+    }
+}
+
+#[cfg(test)]
+mod edits_test {
+    use super::{find_transpositions, find_deletions, Edits};
+
+    #[test]
+    fn find_transpositions_test() {
+        let mut trans_1 = find_transpositions("ab".to_owned());
+        assert!(trans_1.contains("ba"));
+
+        let mut trans_2 = find_transpositions("abc".to_owned());
+        assert!(trans_2.contains("bac"));
+        assert!(trans_2.contains("acb"));
+        assert!(!trans_2.contains("abcd"));
+    }
+
+    #[test]
+    fn find_deletions_test() {
+        let mut dels = find_deletions("ab".to_owned());
+        assert!(dels.contains("b"));
+        assert!(dels.contains("a"));
+    }
+
+    #[test]
+    fn find_replacements_test() {
+        let mut reps = find_replacements("abc", to_owned());
+        assert!(reps.contains("abd"));
+        assert!(reps.contains("dbc"));
+        assert!(reps.contains("acc"));
+
+        assert!(!reps.contains("accd"));
+        assert!(!reps.contains("cd"));
+        assert!(!reps.contains("bcd"));
+        assert!(!reps.contains("acd"));
+    }
+
+
+    #[test]
+    fn find_insertions_test() {
+
     }
 }
 
