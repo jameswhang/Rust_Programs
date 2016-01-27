@@ -19,6 +19,7 @@ Assumptions:
 type CountTable = std::collections::HashMap<String, usize>;
 type Candidates = std::vec::Vec<String>;
 type Edits = std::collections::HashSet<String>;
+static ALPHABETS : &'static str = "abcdefghijklmnopqrstuvwxyz";
 
 fn main() {
     let args: Vec<_> = env::args().collect();
@@ -29,6 +30,8 @@ fn main() {
     let table = form_table(f); 
 
     correct(stdin(), table);
+
+    find_deletions("abcd".to_owned());
 }
 
 fn correct<R: Read>(reader: R, table: CountTable) {
@@ -48,7 +51,6 @@ fn edits_one(word: String) -> Edits {
     let mut inserts = Edits::new();
     let mut cand = Edits::new();
     let mut word_s = word.clone();
-    let alphabet = "abcdefghijklmnopqrstuvwxyz";
 
     deletes 
 }
@@ -57,9 +59,19 @@ fn find_deletions(word: String) -> Edits {
     let mut edits = Edits::new();
     let mut deleted: String;
 
-    for i in 0..word.len() - 1 as usize {
-        deleted = (&word[..i]).to_string();
-        deleted = deleted + &word[i + (1 as usize) ..];
+    if word.len() <= 1 {
+        return edits
+    }
+
+    for i in 0..word.len() as usize {
+        if i == 0 {
+            deleted = (&word[i + (1 as usize)..]).to_string();
+        } else if i == word.len() - 1 {
+            deleted = (&word[..i]).to_string();
+        } else {
+            deleted = (&word[..i]).to_string();
+            deleted = deleted + &word[i + (1 as usize)..];
+        }
         edits.insert(deleted.clone());
     }
     edits
@@ -68,12 +80,32 @@ fn find_deletions(word: String) -> Edits {
 
 fn find_replacements(word: String) -> Edits {
     let mut edits = Edits::new(); 
+    let mut replaced : String;
+
+    for i in 0..word.len() as usize {
+        for c in ALPHABETS.chars() {
+            replaced = (&word[..i]).to_string();
+            replaced.push(c);
+            replaced = replaced + &word[i + (1 as usize)..];
+            edits.insert(replaced.clone());
+        }
+    }
     edits
-    // TODO
 }
 
 fn find_insertions(word: String) -> Edits {
     let mut edits = Edits::new();
+    let mut inserted : String;
+
+    for i in 0..word.len() + 1 as usize {
+        for c in ALPHABETS.chars() {
+            inserted = (&word[..i]).to_string();
+            inserted.push(c);
+            inserted = inserted + &word[i..];
+            println!("inserted: {}", inserted);
+            edits.insert(inserted.clone());
+        }
+    }
     edits
 }
 
@@ -282,7 +314,7 @@ mod increment_word_tests {
 
 #[cfg(test)]
 mod edits_test {
-    use super::{find_transpositions, find_deletions, Edits};
+    use super::{find_transpositions, find_deletions, find_replacements, find_insertions, Edits};
 
     #[test]
     fn find_transpositions_test() {
@@ -300,11 +332,19 @@ mod edits_test {
         let mut dels = find_deletions("ab".to_owned());
         assert!(dels.contains("b"));
         assert!(dels.contains("a"));
+        assert!(!dels.contains("ab"));
+
+        let mut dels2 = find_deletions("abcd".to_owned());
+        assert!(dels2.contains("abc"));
+        assert!(dels2.contains("bcd"));
+        assert!(dels2.contains("acd"));
+        assert!(dels2.contains("abd"));
+
     }
 
     #[test]
     fn find_replacements_test() {
-        let mut reps = find_replacements("abc", to_owned());
+        let mut reps = find_replacements("abc".to_owned());
         assert!(reps.contains("abd"));
         assert!(reps.contains("dbc"));
         assert!(reps.contains("acc"));
@@ -318,7 +358,13 @@ mod edits_test {
 
     #[test]
     fn find_insertions_test() {
+        let mut ins = find_insertions("ab".to_owned());
+        assert!(ins.contains("abc"));
+        assert!(ins.contains("abb"));
+        assert!(ins.contains("abd"));
 
+        assert!(!ins.contains("acc"));
+        assert!(!ins.contains("abcd"));
     }
 }
 
