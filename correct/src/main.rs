@@ -40,19 +40,46 @@ fn correct<R: Read>(reader: R, table: CountTable) {
     while let Some(Ok(word)) = lines.next() {
         if table.contains_key(&word) {
             println!("{}", word);
+            continue;
         }
-        let candidates = edits_one(word);
+        let edit_ones = edits_one(&word); // Find words that are of distance 1 (editted by 1)
+        let mut edit_twos = Edits::new(); // Another HashMap to store words of distance 2
+
+        let mut closest = "-".to_owned(); // String to hold the closest word.
+        let mut closest_count = 0; // If count gets left as 0, there is no word "close enough" to
+                                    // the given test word
+
+        for edit_one_word in edit_ones.iter() {
+            edit_twos = edit_twos.union(&edits_one(&edit_one_word.to_owned())).cloned().collect();
+        }
+
+        for edit_two_word in edit_twos.iter() {
+            if table.contains_key(edit_two_word) {
+                if table[edit_two_word] > closest_count {
+                    closest = edit_two_word.to_owned();
+                    closest_count = table[edit_two_word];
+                }
+            }
+        }
+
+        println!("{}, {}", word, closest);
     }
 }
 
-fn edits_one(word: String) -> Edits {
-    let mut deletes = Edits::new();
-    let mut replaces = Edits::new();
-    let mut inserts = Edits::new();
-    let mut cand = Edits::new();
-    let mut word_s = word.clone();
+fn edits_one(word: &String) -> Edits {
+    let mut deletes = find_deletions(word.to_owned());
+    let mut replaces = find_replacements(word.to_owned());
+    let mut inserts = find_insertions(word.to_owned());
+    let mut trans = find_transpositions(word.to_owned());
 
-    deletes 
+    let mut edits = Edits::new();
+
+    edits = edits.union(&deletes).cloned().collect();
+    edits = edits.union(&replaces).cloned().collect();
+    edits = edits.union(&inserts).cloned().collect();
+    edits = edits.union(&trans).cloned().collect();
+
+    edits
 }
 
 fn find_deletions(word: String) -> Edits {
@@ -102,7 +129,6 @@ fn find_insertions(word: String) -> Edits {
             inserted = (&word[..i]).to_string();
             inserted.push(c);
             inserted = inserted + &word[i..];
-            println!("inserted: {}", inserted);
             edits.insert(inserted.clone());
         }
     }
