@@ -30,29 +30,23 @@ fn main() {
     let table = form_table(f); 
 
     correct(stdin(), table);
-
-    find_deletions("abcd".to_owned());
 }
 
 fn correct<R: Read>(reader: R, table: CountTable) {
     let mut lines = BufReader::new(reader).lines();
 
     while let Some(Ok(word)) = lines.next() {
-        if table.contains_key(&word) {
+        if table.contains_key(&word) { // If the word is already known, no need to go through this 
             println!("{}", word);
             continue;
         }
-        let edit_ones = edits_one(&word); // Find words that are of distance 1 (editted by 1)
-        let mut edit_twos = Edits::new(); // Another HashMap to store words of distance 2
+
+        let edit_twos = edits_two(&word);
 
         let mut closest = "-".to_owned(); // String to hold the closest word.
         let mut closest_count = 0; // If count gets left as 0, there is no word "close enough" to
                                     // the given test word
-
-        for edit_one_word in edit_ones.iter() {
-            edit_twos = edit_twos.union(&edits_one(&edit_one_word.to_owned())).cloned().collect();
-        }
-
+        
         for edit_two_word in edit_twos.iter() {
             if table.contains_key(edit_two_word) {
                 if table[edit_two_word] > closest_count {
@@ -61,16 +55,25 @@ fn correct<R: Read>(reader: R, table: CountTable) {
                 }
             }
         }
-
         println!("{}, {}", word, closest);
     }
 }
 
+fn edits_two(word: &String) -> Edits {
+    let mut edits = Edits::new();
+    let edit_ones = edits_one(&word);
+
+    for edit_one_word in edit_ones.iter() {
+        edits = edits.union(&edits_one(&edit_one_word.to_owned())).cloned().collect();
+    }
+    edits
+}
+
 fn edits_one(word: &String) -> Edits {
-    let mut deletes = find_deletions(word.to_owned());
-    let mut replaces = find_replacements(word.to_owned());
-    let mut inserts = find_insertions(word.to_owned());
-    let mut trans = find_transpositions(word.to_owned());
+    let deletes = find_deletions(word.to_owned());
+    let replaces = find_replacements(word.to_owned());
+    let inserts = find_insertions(word.to_owned());
+    let trans = find_transpositions(word.to_owned());
 
     let mut edits = Edits::new();
 
@@ -78,7 +81,6 @@ fn edits_one(word: &String) -> Edits {
     edits = edits.union(&replaces).cloned().collect();
     edits = edits.union(&inserts).cloned().collect();
     edits = edits.union(&trans).cloned().collect();
-
     edits
 }
 
@@ -340,14 +342,14 @@ mod increment_word_tests {
 
 #[cfg(test)]
 mod edits_test {
-    use super::{find_transpositions, find_deletions, find_replacements, find_insertions, Edits};
+    use super::{find_transpositions, find_deletions, find_replacements, find_insertions, edits_one, edits_two};
 
     #[test]
     fn find_transpositions_test() {
-        let mut trans_1 = find_transpositions("ab".to_owned());
+        let trans_1 = find_transpositions("ab".to_owned());
         assert!(trans_1.contains("ba"));
 
-        let mut trans_2 = find_transpositions("abc".to_owned());
+        let trans_2 = find_transpositions("abc".to_owned());
         assert!(trans_2.contains("bac"));
         assert!(trans_2.contains("acb"));
         assert!(!trans_2.contains("abcd"));
@@ -355,12 +357,12 @@ mod edits_test {
 
     #[test]
     fn find_deletions_test() {
-        let mut dels = find_deletions("ab".to_owned());
+        let dels = find_deletions("ab".to_owned());
         assert!(dels.contains("b"));
         assert!(dels.contains("a"));
         assert!(!dels.contains("ab"));
 
-        let mut dels2 = find_deletions("abcd".to_owned());
+        let dels2 = find_deletions("abcd".to_owned());
         assert!(dels2.contains("abc"));
         assert!(dels2.contains("bcd"));
         assert!(dels2.contains("acd"));
@@ -370,7 +372,7 @@ mod edits_test {
 
     #[test]
     fn find_replacements_test() {
-        let mut reps = find_replacements("abc".to_owned());
+        let reps = find_replacements("abc".to_owned());
         assert!(reps.contains("abd"));
         assert!(reps.contains("dbc"));
         assert!(reps.contains("acc"));
@@ -384,7 +386,7 @@ mod edits_test {
 
     #[test]
     fn find_insertions_test() {
-        let mut ins = find_insertions("ab".to_owned());
+        let ins = find_insertions("ab".to_owned());
         assert!(ins.contains("abc"));
         assert!(ins.contains("abb"));
         assert!(ins.contains("abd"));
@@ -392,10 +394,32 @@ mod edits_test {
         assert!(!ins.contains("acc"));
         assert!(!ins.contains("abcd"));
     }
-}
 
-fn produce_output(table: &CountTable) {
-    for (word, count) in table {
-        println!("{}: {}", word, count);
+    #[test]
+    fn edit1_test() {
+        let edit1s = edits_one(&"abcd".to_owned());
+        assert!(edit1s.contains("abd"));
+        assert!(edit1s.contains("abcde"));
+        assert!(edit1s.contains("abcz"));
+        assert!(edit1s.contains("bacd"));
+
+        assert!(!edit1s.contains("adzcd"));
+        assert!(!edit1s.contains("aabed"));
+        assert!(!edit1s.contains("cccd"));
+        assert!(!edit1s.contains("cd"));
+    }
+
+    #[test]
+    fn edit2_test() {
+        let edit2s = edits_two(&"abcd".to_owned());
+        assert!(edit2s.contains("aabcd"));
+        assert!(edit2s.contains("aabed"));
+        assert!(edit2s.contains("badc"));
+        assert!(edit2s.contains("abcdef"));
+        assert!(edit2s.contains("cd"));
+
+        assert!(!edit2s.contains("d"));
+        assert!(!edit2s.contains("abcdefg"));
+        assert!(!edit2s.contains("cqfg"));
     }
 }
