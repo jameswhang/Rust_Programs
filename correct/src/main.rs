@@ -12,7 +12,7 @@ use std::fs::File;
 Author: James Whang (syw973, sungyoonwhang2017@u.northwestern.edu)
 
 Assumptions:
-    Training file doesn't have typos
+    Training file doesn't have typos (hopefully)
     One word per line in the input text to be corrected
 "]
 
@@ -86,21 +86,21 @@ fn edits_one(word: &String) -> Edits {
 
 fn find_deletions(word: String) -> Edits {
     let mut edits = Edits::new();
-    let mut deleted: String;
 
     if word.len() <= 1 {
         return edits
     }
 
     for i in 0..word.len() as usize {
-        if i == 0 {
-            deleted = (&word[i + (1 as usize)..]).to_string();
-        } else if i == word.len() - 1 {
-            deleted = (&word[..i]).to_string();
-        } else {
-            deleted = (&word[..i]).to_string();
-            deleted = deleted + &word[i + (1 as usize)..];
-        }
+        let deleted : String = {
+            if i == 0 {
+                (&word[i + (1 as usize)..]).to_string()
+            } else if i == word.len() - 1 {
+                (&word[..i]).to_string()
+            } else {
+                (&word[..i]).to_string() + &word[i + (1 as usize)..]
+            }
+        };
         edits.insert(deleted.clone());
     }
     edits
