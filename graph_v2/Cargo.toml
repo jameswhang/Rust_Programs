@@ -1,4 +1,7 @@
 [package]
-name = "graph-v2"
+name = "graph_v2"
 version = "0.1.0"
 authors = ["James Whang <sungyoonwhang2017@u.northwestern.edu>"]
+
+[dependencies]
+regex = "*"

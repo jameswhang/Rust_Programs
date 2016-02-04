@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 use std::hash::{Hash, SipHasher, Hasher};
 
 #[derive(Eq, Debug)]
-pub struct Vertex<'a> {
+struct Vertex<'a> {
     adj: HashSet<&'a Vertex<'a>>,
     key: String,
 }
