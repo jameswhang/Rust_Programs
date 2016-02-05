@@ -1,7 +1,7 @@
 extern crate graph_v2;
 extern crate regex;
 
-use graph_v2::{graph};
+use graph_v2::{adelgraph};
 use regex::{Regex};
 use std::io;
 use std::io::{BufRead, BufReader, Read, stdin};
@@ -16,11 +16,11 @@ fn main() {
 //    let graph = process_file(inputfile);
 }
 
-fn process_file<R: Read>(input :R) -> graph::Graph<'static> {
+fn process_file<R: Read>(input :R) {
     unimplemented!();
 /*
     let mut graph: graph::Graph = graph::Graph::new();
-    let mut previous = None; 
+    let mut previous = None;
     let reader = BufReader::new(input);
 
     for line in reader.lines() {
