@@ -64,6 +64,8 @@ fn handle_queries<R: Read>(input : R, graph : &Graph) {
 
             previous = Some(node.to_string());
         }
+
+        previous = None;
     }
 }
 
