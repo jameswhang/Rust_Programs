@@ -1,12 +1,34 @@
 #[doc="
     Authors: Adel and James, Whang and Lahlou.
+    NetIDs: syw973, adl538
 
-    This program uses the included graph data structure to
+    This is an implementation of Graph that allows the addition of vertices and edges by supplying
+    a key (String). The keys must be unique and so there are no nodes with duplicate key values.
 
+    The implementation was decided upon to maximize learning. We could've done a simple adjancency matrix
+    or adjacency, or even a HashMap<String, Vec<String>> since the homework didn't say the nodes needed to be mutable.
+    Instead, we wrote a few different implementations, some that relied on heavy use of life times,
+    generics (which needed PhatomData markers). Ultimately, we went with a representation to get
+    practice using reference types other than box, specifically RefCell and Rc. We also practiced
+    using Traits.
+
+    Otherwise, we made choices related to performance. HashMap allows O(1) access to any node by unique
+    hashed key value. HashSets for adjancency prohibits duplicates (though apparently is super unstable).
+    While slightly more expensive operation wise, space wise, using HashSets is similar to adjacency lists.
+    The VertexCell struct was made to wrap our reference for convenience, so that we could implementations
+    traits.
 
     Comments:
+        - Structs VertexCell and Vertex were exposed through pub to do tests
+        - Structs don't derive debug because they cause an infinite print loops and overrun the stack
 
     Assumptions:
+        - Simple graph aka nodes can't share edges with themself
+        - Keys are only Strings
+        - We want only unique keys
+        - We want any path from origin to destination vertex
+        - Graph is undirected
+        - Graph vertices must be mutable
 "]
 
 extern crate graph_v2;
@@ -32,10 +54,8 @@ fn process_file<R : Read>(input: R) -> Graph {
         //iterate through tokens seperated by whitespace aka token names
         for node in line.unwrap().split_whitespace() {
             graph.add_vertex(node.to_string());
-            println!("Adding {}", node);
             if let Some(pnode) = previous {
                 graph.add_edge(&pnode, &node.to_string());
-                println!("Edge from {} to {}", pnode, node);
             }
 
             previous = Some(node.to_string());
@@ -53,12 +73,18 @@ fn handle_queries<R: Read>(input : R, graph : &Graph) {
     let reader = BufReader::new(input);
 
     for line in reader.lines() {
-        let mut path_string = String::new();
-
         for node in line.unwrap().split_whitespace() {
             if let Some(pnode) = previous {
-                if let Some(vertex_keys) = graph.search_path(pnode, node.to_string()) {
-                    path_string.push_str(&vertex_keys.join(" "));
+                let path = graph.find_path(pnode.clone(), node.to_string());
+                if path.len() == 0 {
+                    println!("There is no path from {} to {}", pnode.clone(), node.to_string());
+                } else {
+                    let mut path_string = "".to_string();
+                    for node in path {
+                        path_string.push_str(&node);
+                        path_string.push_str(" ");
+                    }
+                    println!("{}", path_string);
                 }
             }
 
@@ -74,7 +100,7 @@ fn process_commandline() -> BufReader<File> {
     let args : Vec<_>= std::env::args().collect();
 
     if args.len() != 2 {
-        panic!("usage: cargo run graph_file.dat");
+        panic!("usage: cargo run graph.dat");
     }
 
     let mut filename = args[1].clone();
