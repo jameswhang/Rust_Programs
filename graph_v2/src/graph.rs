@@ -28,7 +28,7 @@
         - Graph vertices must be mutable
 "]
 
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashSet, HashMap, VecDeque};
 use std::cell::{RefCell};
 use std::rc::Rc;
 use std::hash::{Hash, SipHasher, Hasher};
@@ -51,15 +51,12 @@ impl Graph {
     }
 
     pub fn add_edge(&mut self, a_key : &String, b_key : &String) -> bool {
-
         if a_key != b_key {
             if let Some(a) = self.vertices.get(a_key) {
                 if let Some(b) = self.vertices.get(b_key) {
                     return Vertex::add_neighbor(a, b)
                 }
-            }
         }
-
         false
     }
 
@@ -86,17 +83,63 @@ impl Graph {
     pub fn len(&self) -> usize {
         self.vertices.len()
     }
+
+    fn get_all_neighbors(self, vertex: String) -> HashSet<String> {
+        // Returns names of all neighbors of a node
+        let vc: VertexCell;
+        let mut neighbors: HashSet<String> = HashSet::new();
+        if let Some(vc) = self.vertices.get(&vertex) {
+            let ref adj = vc.ptr.borrow().adj;
+            for vc in adj {
+                neighbors.insert(vc.ptr.borrow().key.clone());
+            }
+        }
+        neighbors
+    }
+
+    pub fn find_path(mut self, src: String, dst: String) -> Vec<String> {
+        // Returns a Vector of names of vertices in the path from source to destination
+        // Uses simple BFS-based alogorithm
+        let mut path: HashMap<String, String> = HashMap::new();
+        let mut queue: VecDeque<String> = VecDeque::new();
+        let mut return_path: Vec<String> = Vec::new();
+
+        if self.vertices.contains_key(&src) && self.vertices.contains_key(&dst){
+            let srcVertex = &self.vertices.get(&src);
+            let mut cur_node: String;
+            let mut visited: HashSet<String> = HashSet::new();;
+
+            queue.push_back(src.to_owned());
+
+            while queue.len() > 0 {
+                if let Some(cur_node) = queue.pop_front() {
+                    if cur_node == dst {
+                        break;
+                    }
+                    let neighbors = &self.get_all_neighbors(cur_node.to_owned());
+                    for n in neighbors {
+                        if !visited.contains(n) {
+                            visited.insert(n.clone());
+                            queue.push_back(n.clone());
+                            path.insert(n.clone(), cur_node.clone());
+                        }
+                    }
+                }
+            }
+
+            // Going through the path HashMap to form the vector of Strings
+            cur_node = dst.clone();
+            while cur_node != src {
+                return_path.push(cur_node.to_owned());
+                if let Some(v) = path.get(&cur_node) {
+                    cur_node = v.to_owned();
+                }
+            }
+        }
+        return_path.reverse();
+        return_path
+    }
 }
-
-//
-// type VertexPtr<'a, T> = Option<Box<Vertex<'a, T>>>;
-//
-// struct Vertex <'a, T> where T : 'a {
-//     key: T,
-//     neighbors : HashSet<VertexPtr<'a, T>>,
-//     phantom: PhantomData<&'a T>,
-// }
-
 
 type VertexCell_t = Rc<RefCell<Vertex>>;
 
@@ -142,7 +185,7 @@ impl Hash for VertexCell {
 }
 
 
-impl Vertex{
+impl Vertex {
     pub fn new(key: String) -> Vertex {
         Vertex {
             adj: HashSet::new(),
@@ -168,6 +211,10 @@ impl Vertex{
 
     pub fn are_neighbors(a: &VertexCell, b : &VertexCell) -> bool {
         a.ptr.borrow().adj.contains(b)
+    }
+
+    pub fn get_name(self) -> String {
+        return self.key;
     }
 }
 
