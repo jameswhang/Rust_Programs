@@ -50,17 +50,21 @@ impl Graph {
         self.vertices.entry(name.clone()).or_insert(Vertex::new_cell(name));
     }
 
-    pub fn add_edge(&mut self, a_key : String, b_key : String) -> bool {
+    pub fn add_edge(&mut self, a_key : &String, b_key : &String) -> bool {
 
         if a_key != b_key {
-            if let Some(a) = self.vertices.get(&a_key) {
-                if let Some(b) = self.vertices.get(&b_key) {
+            if let Some(a) = self.vertices.get(a_key) {
+                if let Some(b) = self.vertices.get(b_key) {
                     return Vertex::add_neighbor(a, b)
                 }
             }
         }
 
         false
+    }
+
+    pub fn search_path(&self, from : String, to : String) -> Option<Vec<String>> {
+        unimplemented!();
     }
 
     pub fn find_path_strings(&self, from : String, to : String) -> Vec<Vertex> {
