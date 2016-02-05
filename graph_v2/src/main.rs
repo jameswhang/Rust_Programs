@@ -1,7 +1,7 @@
 extern crate graph_v2;
 extern crate regex;
 
-use graph_v2::{adelgraph};
+use graph_v2::{graph};
 use regex::{Regex};
 use std::io;
 use std::io::{BufRead, BufReader, Read, stdin};

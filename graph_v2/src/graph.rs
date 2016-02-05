@@ -1,3 +1,33 @@
+#[doc="
+    This is an implementation of Graph that allows the addition of vertices and edges by supplying
+    a key (String). The keys must be unique and so there are no nodes with duplicate key values.
+
+    The implementation was decided upon to maximize learning. We could've done a simple adjancency matrix
+    or adjacency, or even a HashMap<String, Vec<String>> since the homework didn't say the nodes needed to be mutable.
+    Instead, we wrote a few different implementations, some that relied on heavy use of life times,
+    generics (which needed PhatomData markers). Ultimately, we went with a representation to get
+    practice using reference types other than box, specifically RefCell and Rc. We also practiced
+    using Traits.
+
+    Otherwise, we made choices related to performance. HashMap allows O(1) access to any node by unique
+    hashed key value. HashSets for adjancency prohibits duplicates (though apparently is super unstable).
+    While slightly more expensive operation wise, space wise, using HashSets is similar to adjacency lists.
+    The VertexCell struct was made to wrap our reference for convenience, so that we could implementations
+    traits.
+
+    Comments:
+        - Structs VertexCell and Vertex were exposed through pub to do tests
+        - Structs don't derive debug because they cause an infinite print loops and overrun the stack
+
+    Assumptions:
+        - Simple graph aka nodes can't share edges with themself
+        - Keys are only Strings
+        - We want only unique keys
+        - We want any path from origin to destination vertex
+        - Graph is undirected
+        - Graph vertices must be mutable
+"]
+
 use std::collections::{HashSet, HashMap};
 use std::cell::{RefCell};
 use std::rc::Rc;
@@ -5,7 +35,6 @@ use std::hash::{Hash, SipHasher, Hasher};
 use std::marker::PhantomData;
 
 
-#[derive(Debug)]
 pub struct Graph{
     vertices: HashMap<String, VertexCell>,
 }
@@ -22,14 +51,33 @@ impl Graph {
     }
 
     pub fn add_edge(&mut self, a_key : String, b_key : String) -> bool {
-        if let Some(a) = self.vertices.get(&a_key) {
-            if let Some(b) = self.vertices.get(&b_key) {
-                return Vertex::add_neighbor(a, b)
+
+        if a_key != b_key {
+            if let Some(a) = self.vertices.get(&a_key) {
+                if let Some(b) = self.vertices.get(&b_key) {
+                    return Vertex::add_neighbor(a, b)
+                }
             }
         }
 
         false
     }
+
+    pub fn find_path_strings(&self, from : String, to : String) -> Vec<Vertex> {
+        // if let Some(from_rc) = self.get(from) {
+        //     if let Some(to_rc) = self.get(to) {
+        //         if let Ok(from_cell) = from_rc.try_unwrap() {
+        //             if let Ok(to_cell) = to_rc.try_unwrap() {
+        //
+        //             }
+        //         }
+        //     }
+        // }
+
+        panic!("Vertex with that key not in graph");
+    }
+
+    // pub fn find_path
 
     pub fn len(&self) -> usize {
         self.vertices.len()
@@ -49,13 +97,13 @@ impl Graph {
 type VertexCell_t = Rc<RefCell<Vertex>>;
 
 
-#[derive(Eq, Debug)]
+#[derive(Eq)]
 pub struct Vertex {
     adj: HashSet<VertexCell>,
     key: String,
 }
 
-#[derive(Debug, Eq)]
+#[derive(Eq)]
 pub struct VertexCell{
     ptr : VertexCell_t
 }
@@ -213,6 +261,6 @@ mod graph_tests {
 
             g.add_vertex("v1".to_string());
             assert_eq!(g.len(), 1);
-        }git
+        }
     }
 }
