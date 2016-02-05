@@ -19,7 +19,7 @@
     traits.
 
     Comments:
-        - Structs VertexCell and Vertex were exposed through pub to do tests
+        - Structs Vertex was not exposed by pub. Means, direct vertex level operations not allowed
         - Structs don't derive debug because they cause an infinite print loops and overrun the stack
 
     Assumptions:

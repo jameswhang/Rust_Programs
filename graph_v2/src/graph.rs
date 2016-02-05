@@ -1,9 +1,25 @@
+#[doc="
+    Exposes only the Graph struct. Most of logic can be found in the Vertex struct. Most of the logic
+    is done only
+
+    Comments:
+        - By not exposing Vertex, that means we have to operate through the use of keys. This causes
+        non-idomatic code. We chose this so that there would be no illegal mutation such as changing
+        keys by assignment, therefore ruining the HashMap
+        -
+
+"]
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::cell::{RefCell};
 use std::rc::Rc;
 use std::hash::{Hash, Hasher};
 
-pub struct Graph{
+
+/// Public container for creating graph structure that is mutable by reference
+/// A hashmap by String was chosen since vertex keys are strings.
+/// Side-effect is that once a graph instance goes out of scope, then all the nodes
+/// are out of scope as well, which is proper behavior.
+pub struct Graph {
     vertices: HashMap<String, VertexCell>,
 }
 
@@ -14,17 +30,27 @@ impl Graph {
         }
     }
 
-    pub fn add_vertex(&mut self, name : String) {
-        self.vertices.entry(name.clone()).or_insert(Vertex::new_cell(name));
+    /// Adds a single vertex. Ensures only adding vertices with unique keys.
+    /// @param key : String - string to be used as key in vertex
+    pub fn add_vertex(&mut self, key : String) {
+        self.vertices.entry(key.clone()).or_insert(Vertex::new_cell(key));
     }
 
-    pub fn add_vertices(&mut self, names: Vec<String>) {
-        for name in names {
-            self.add_vertex(name);
+    /// Adds vertices. Ensures only adding vertices with unique keys.
+    /// @param keys : Vec<String> - string to be used as key in vertex
+    pub fn add_vertices(&mut self, keys: Vec<String>) {
+        for key in keys {
+            self.add_vertex(key);
         }
     }
 
+    /// Adds vertices. Ensures only simple graphs i.e. no self-loopoing
+    /// @param a_key : String - key of node in graph
+    /// @param b_key : String - key of node in graph
+    ///
+    /// @return bool - returns whether
     pub fn add_edge(&mut self, a_key : &String, b_key : &String) -> bool {
+        //prevents self-loop
         if a_key != b_key {
             if let Some(a) = self.vertices.get(a_key) {
                 if let Some(b) = self.vertices.get(b_key) {
@@ -32,43 +58,57 @@ impl Graph {
                 }
             }
         }
+
         false
     }
 
+    /// Returns number of nodes in graph. Uses len hashmap
+    /// @return usize -  number of nodes in graph
     pub fn len(&self) -> usize {
         self.vertices.len()
     }
 
-    fn get_all_neighbors(&self, vertex: String) -> HashSet<String> {
-        // Returns names of all neighbors of a node
+    /// Returns keys of all neighbors of a node
+    /// @param vertex_key : String - key of node to find neighbors of
+    ///
+    /// @return HashSet<String> -
+    fn get_all_neighbors(&self, vertex_key: String) -> HashSet<String> {
         let mut neighbors: HashSet<String> = HashSet::new();
-        if let Some(vc) = self.vertices.get(&vertex) {
+
+        if let Some(vc) = self.vertices.get(&vertex_key) {
             let ref adj = vc.ptr.borrow().adj;
+
             for vc in adj {
                 neighbors.insert(vc.ptr.borrow().key.clone());
             }
         }
+
         neighbors
     }
 
-    pub fn find_path(&self, src: String, dst: String) -> Vec<String> {
-        // Returns a Vector of names of vertices in the path from source to destination
-        // Uses simple BFS-based alogorithm
+    // Returns a Vector of names of vertices in the path from source to destination
+    // Uses simple BFS-based alogorithm
+    /// @param src_key : String - key of node in graph
+    /// @param dst_key : String - key of node in graph
+    ///
+    /// @return Vec<String>
+    pub fn find_path(&self, src_key: String, dst_key: String) -> Vec<String> {
         let mut path: HashMap<String, String> = HashMap::new();
+        //stack for BFS
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut return_path: Vec<String> = Vec::new();
         let mut path_exists = false;
 
-        if self.vertices.contains_key(&src) && self.vertices.contains_key(&dst){
+        if self.vertices.contains_key(&src_key) && self.vertices.contains_key(&dst_key) {
             let mut cur_node: String;
             let mut visited: HashSet<String> = HashSet::new();;
 
-            queue.push_back(src.to_owned());
-            visited.insert(src.clone());
+            queue.push_back(src_key.to_owned());
+            visited.insert(src_key.clone());
 
             while queue.len() > 0 {
                 if let Some(cur_node) = queue.pop_front() {
-                    if cur_node == dst {
+                    if cur_node == dst_key {
                         path_exists = true;
                         break;
                     }
@@ -84,9 +124,9 @@ impl Graph {
             }
 
             // Going through the path HashMap to form the vector of Strings
-            cur_node = dst.clone();
+            cur_node = dst_key.clone();
             if path_exists {
-                while cur_node != src {
+                while cur_node != src_key {
                     return_path.push(cur_node.to_owned());
                     if let Some(v) = path.get(&cur_node) {
                         cur_node = v.to_owned();
@@ -95,6 +135,7 @@ impl Graph {
                 return_path.push(cur_node.to_owned());
             }
         }
+
         if return_path.len() == 1 {
             return Vec::new();
         } else {
@@ -104,17 +145,18 @@ impl Graph {
     }
 }
 
+
+
 type VertexCellT = Rc<RefCell<Vertex>>;
 
-
 #[derive(Eq)]
-pub struct Vertex {
+struct Vertex {
     adj: HashSet<VertexCell>,
     key: String,
 }
 
 #[derive(Eq)]
-pub struct VertexCell{
+struct VertexCell{
     ptr : VertexCellT
 }
 
@@ -213,17 +255,19 @@ impl Hash for Vertex {
 }
 
 
+/*********************** TESTS **************************************************/
+
 
 #[cfg(test)]
 mod graph_tests {
-    pub use super::{Vertex, Graph};
+    use super::{Vertex, Graph};
 
     #[test]
     // lets make sure vertices can get added
     fn graph_test_add_vertex() {
         let mut g1 = Graph::new();
         let mut g2 = Graph::new();
-        
+
         g1.add_vertex("a".to_string());
         g2.add_vertices(vec!["a".to_string(), "b".to_string()].to_owned());
         assert_eq!(g1.len(), 1);
