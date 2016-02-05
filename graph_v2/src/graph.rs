@@ -56,6 +56,7 @@ impl Graph {
                 if let Some(b) = self.vertices.get(b_key) {
                     return Vertex::add_neighbor(a, b)
                 }
+            }
         }
         false
     }
@@ -78,13 +79,11 @@ impl Graph {
         panic!("Vertex with that key not in graph");
     }
 
-    // pub fn find_path
-
     pub fn len(&self) -> usize {
         self.vertices.len()
     }
 
-    fn get_all_neighbors(self, vertex: String) -> HashSet<String> {
+    fn get_all_neighbors(&self, vertex: String) -> HashSet<String> {
         // Returns names of all neighbors of a node
         let vc: VertexCell;
         let mut neighbors: HashSet<String> = HashSet::new();
@@ -97,7 +96,7 @@ impl Graph {
         neighbors
     }
 
-    pub fn find_path(mut self, src: String, dst: String) -> Vec<String> {
+    pub fn find_path(&self, src: String, dst: String) -> Vec<String> {
         // Returns a Vector of names of vertices in the path from source to destination
         // Uses simple BFS-based alogorithm
         let mut path: HashMap<String, String> = HashMap::new();
@@ -105,7 +104,7 @@ impl Graph {
         let mut return_path: Vec<String> = Vec::new();
 
         if self.vertices.contains_key(&src) && self.vertices.contains_key(&dst){
-            let srcVertex = &self.vertices.get(&src);
+            let srcVertex = self.vertices.get(&src);
             let mut cur_node: String;
             let mut visited: HashSet<String> = HashSet::new();;
 
@@ -116,9 +115,9 @@ impl Graph {
                     if cur_node == dst {
                         break;
                     }
-                    let neighbors = &self.get_all_neighbors(cur_node.to_owned());
+                    let neighbors = self.get_all_neighbors(cur_node.clone());
                     for n in neighbors {
-                        if !visited.contains(n) {
+                        if !visited.contains(&n) {
                             visited.insert(n.clone());
                             queue.push_back(n.clone());
                             path.insert(n.clone(), cur_node.clone());
@@ -290,28 +289,9 @@ mod graph_tests {
             let cell2 = Vertex::new_cell("two".to_string());
 
             Vertex::add_neighbor(&cell1, &cell2);
-
             {
                 cell2.ptr.borrow_mut().key = "changed".to_string();
             }
-
-
-            // if let Some(c2) = cell1.ptr.borrow().adj.iter().next() {
-            //     assert_eq!( c2.ptr.borrow().key.clone(), cell2.ptr.borrow().key);
-            // }
-        }
-    }
-
-
-    mod graph_tests {
-        use super::{Vertex, Graph};
-
-        #[test]
-        fn insert_node(){
-            let mut g = Graph::new();
-
-            g.add_vertex("v1".to_string());
-            assert_eq!(g.len(), 1);
         }
     }
 }
