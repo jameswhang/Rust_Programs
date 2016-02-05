@@ -56,6 +56,7 @@ impl Graph {
                 if let Some(b) = self.vertices.get(b_key) {
                     return Vertex::add_neighbor(a, b)
                 }
+            }
         }
         false
     }
@@ -84,7 +85,7 @@ impl Graph {
         self.vertices.len()
     }
 
-    fn get_all_neighbors(self, vertex: String) -> HashSet<String> {
+    fn get_all_neighbors(&self, vertex: String) -> HashSet<String> {
         // Returns names of all neighbors of a node
         let vc: VertexCell;
         let mut neighbors: HashSet<String> = HashSet::new();
@@ -97,45 +98,48 @@ impl Graph {
         neighbors
     }
 
-    pub fn find_path(mut self, src: String, dst: String) -> Vec<String> {
+    pub fn find_path(&self, src: String, dst: String) -> Vec<String> {
         // Returns a Vector of names of vertices in the path from source to destination
         // Uses simple BFS-based alogorithm
         let mut path: HashMap<String, String> = HashMap::new();
         let mut queue: VecDeque<String> = VecDeque::new();
         let mut return_path: Vec<String> = Vec::new();
 
-        if self.vertices.contains_key(&src) && self.vertices.contains_key(&dst){
-            let srcVertex = &self.vertices.get(&src);
-            let mut cur_node: String;
-            let mut visited: HashSet<String> = HashSet::new();;
+        if let Some(srcVertex) = self.vertices.get(&src) {
+            if let Some(dstVertex) = self.vertices.get(&dst) {
+                let mut cur_node: String;
+                let mut visited: HashSet<String> = HashSet::new();;
 
-            queue.push_back(src.to_owned());
+                queue.push_back(src.to_owned());
 
-            while queue.len() > 0 {
-                if let Some(cur_node) = queue.pop_front() {
-                    if cur_node == dst {
-                        break;
-                    }
-                    let neighbors = &self.get_all_neighbors(cur_node.to_owned());
-                    for n in neighbors {
-                        if !visited.contains(n) {
-                            visited.insert(n.clone());
-                            queue.push_back(n.clone());
-                            path.insert(n.clone(), cur_node.clone());
+                while queue.len() > 0 {
+                    if let Some(cur_node) = queue.pop_front() {
+                        if cur_node == dst {
+                            break;
+                        }
+
+                        let neighbors = &self.get_all_neighbors(cur_node.to_owned());
+                        for n in neighbors {
+                            if !visited.contains(n) {
+                                visited.insert(n.clone());
+                                queue.push_back(n.clone());
+                                path.insert(n.clone(), cur_node.clone());
+                            }
                         }
                     }
                 }
-            }
 
-            // Going through the path HashMap to form the vector of Strings
-            cur_node = dst.clone();
-            while cur_node != src {
-                return_path.push(cur_node.to_owned());
-                if let Some(v) = path.get(&cur_node) {
-                    cur_node = v.to_owned();
+                // Going through the path HashMap to form the vector of Strings
+                cur_node = dst.clone();
+                while cur_node != src {
+                    return_path.push(cur_node.to_owned());
+                    if let Some(v) = path.get(&cur_node) {
+                        cur_node = v.to_owned();
+                    }
                 }
             }
         }
+
         return_path.reverse();
         return_path
     }
