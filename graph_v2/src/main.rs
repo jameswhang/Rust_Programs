@@ -29,6 +29,8 @@
         - We want any path from origin to destination vertex
         - Graph is undirected
         - Graph vertices must be mutable
+        - We do nothing when asked for a path with only one node specified
+        - We alert the user when there is no path
 "]
 
 extern crate graph_v2;
@@ -123,14 +125,68 @@ fn fix_path(base_path : &Path, filename : &String) -> String {
 	base_path.join(Path::new(&filename)).to_str().unwrap().to_owned()
 }
 
-#[cfg(test)]
-mod graph_usage_tests{
-    mod graph_building_test{
 
+/// process_commandline, open_file, and fix_path are from previous assignments
+
+#[cfg(test)]
+mod graph_usage_tests {
+    use std::io::{Read, Result};
+    use super::process_file;
+    use graph_v2::graph::{Graph};
+
+    struct StringReader {
+        contents : Vec<u8>,
+        position : usize,
     }
 
+    impl StringReader {
+        fn new(s : String ) -> Self {
+            StringReader {
+                contents : s.into_bytes(),
+                position : 0,
+            }
+        }
+    }
 
-    mod graph_querying_test {
+    impl Read for StringReader {
+        fn read(&mut self, buf: &mut [u8]) -> Result<usize> {
+            let mut count = 0;
 
+            while self.position < self.contents.len() && count < buf.len() {
+                buf[count] = self.contents[self.position];
+                count += 1;
+                self.position += 1;
+            }
+
+            return Ok(count);
+        }
+    }
+
+    fn assert_processed(expected : &Graph, input : &str){
+        let fake_reader = StringReader::new(input.to_owned());
+        let results = process_file(fake_reader);
+
+        assert!(expected.len() == results.len());
+    }
+
+    mod graph_building_test {
+        extern crate graph_v2;
+        use super::{assert_processed};
+        use graph_v2::graph::{Graph};
+
+
+        #[test]
+        fn simple_build() {
+            let mut expected = Graph::new();
+
+            expected.add_vertices(vec!["a".to_string(), "c".to_string(),
+            "d".to_string()].to_owned());
+
+            expected.add_edge(&"a".to_string(), &"b".to_string());
+            expected.add_edge(&"c".to_string(), &"d".to_string());
+            expected.add_edge(&"a".to_string(), &"d".to_string());
+
+            assert_processed(&expected, "a c\nc d\na d")
+        }
     }
 }

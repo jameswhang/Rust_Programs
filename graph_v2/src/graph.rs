@@ -1,13 +1,17 @@
 #[doc="
     Exposes only the Graph struct. Most of logic can be found in the Vertex struct. Most of the logic
-    is done only
+    is found in the Vertex Struct
 
     Comments:
         - By not exposing Vertex, that means we have to operate through the use of keys. This causes
         non-idomatic code. We chose this so that there would be no illegal mutation such as changing
         keys by assignment, therefore ruining the HashMap
-        -
+        - Chose to do Rc and RefCell because we wanted to do some cool Drop behaviors, but it didn't
+        pan out, but it works fine.
+        - VertexCell struct made to wrap VertexCellT to implement Traits
 
+    Assumptions:
+        - Vertex Keys are strings
 "]
 use std::collections::{HashSet, HashMap, VecDeque};
 use std::cell::{RefCell};
@@ -19,6 +23,7 @@ use std::hash::{Hash, Hasher};
 /// A hashmap by String was chosen since vertex keys are strings.
 /// Side-effect is that once a graph instance goes out of scope, then all the nodes
 /// are out of scope as well, which is proper behavior.
+#[derive(Eq)]
 pub struct Graph {
     vertices: HashMap<String, VertexCell>,
 }
@@ -146,8 +151,22 @@ impl Graph {
 }
 
 
+impl PartialEq for Graph {
+    fn eq(&self, other: &Graph) -> bool {
+        (self.vertices == other.vertices)
+    }
 
+    fn ne(&self, other: &Graph) -> bool {
+        !(self.eq(other))
+    }
+}
+
+
+
+
+/// See comments for choice in using this type
 type VertexCellT = Rc<RefCell<Vertex>>;
+
 
 #[derive(Eq)]
 struct Vertex {
@@ -155,11 +174,14 @@ struct Vertex {
     key: String,
 }
 
+
 #[derive(Eq)]
 struct VertexCell{
     ptr : VertexCellT
 }
 
+
+/// Following Traits implemented to use with HashSet
 impl Clone for VertexCell {
     fn clone(&self) -> Self {
         VertexCell {
@@ -189,8 +211,11 @@ impl Hash for VertexCell {
     }
 }
 
-
 impl Vertex {
+    /// Creates a single vertex.
+    /// @param key : String - string to be used as key in vertex
+    ///
+    /// @return Vertex
     pub fn new(key: String) -> Vertex {
         Vertex {
             adj: HashSet::new(),
@@ -198,22 +223,42 @@ impl Vertex {
         }
     }
 
+    /// Helper to create a single vertexcell.
+    /// @param key : String - string to be used as key in vertex
+    ///
+    /// @return VertexCell
     pub fn new_cell(key: String) -> VertexCell {
         VertexCell {
             ptr : Rc::new(RefCell::new(Vertex::new(key)))
         }
     }
 
+    /// Makes two vertices neighbors. Ensures undirected edge
+    /// @param a : &VertexCell
+    /// @param b : &VertexCell
+    ///
+    /// @return bool - whether a brand new edge was added
     pub fn add_neighbor(a: &VertexCell, b : &VertexCell) -> bool {
         let i = Vertex::add_link(a, b);
         Vertex::add_link(b, a) && i
     }
 
+    /// Creates a directed edge between vertices
+    /// @param a : &VertexCell
+    /// @param b : &VertexCell
+    ///
+    /// @return bool - whether a brand new edge was added
     fn add_link(a : &VertexCell, b : &VertexCell) -> bool{
         let mut mut_ref = a.ptr.borrow_mut();
         mut_ref.adj.insert(b.clone())
     }
 
+
+    /// Checks whether two vertices are neighbors
+    /// @param a : &VertexCell
+    /// @param b : &VertexCell
+    ///
+    /// @return bool - whether a brand new edge was added
     pub fn are_neighbors(a: &VertexCell, b : &VertexCell) -> bool {
         a.ptr.borrow().adj.contains(b)
     }
@@ -223,6 +268,8 @@ impl Vertex {
     }
 }
 
+
+/// Following Traits implemented to use with HashSet
 impl Clone for Vertex {
     fn clone(&self) -> Self {
         Vertex {
@@ -236,7 +283,6 @@ impl Clone for Vertex {
         self.adj = source.adj.clone();
     }
 }
-
 
 impl PartialEq for Vertex {
     fn eq(&self, other: &Vertex) -> bool {
@@ -260,22 +306,67 @@ impl Hash for Vertex {
 
 #[cfg(test)]
 mod graph_tests {
-    use super::{Vertex, Graph};
+    use super::{Graph};
+    use std::collections::{HashSet};
 
     #[test]
-    // lets make sure vertices can get added
     fn graph_test_add_vertex() {
         let mut g1 = Graph::new();
-        let mut g2 = Graph::new();
 
         g1.add_vertex("a".to_string());
-        g2.add_vertices(vec!["a".to_string(), "b".to_string()].to_owned());
         assert_eq!(g1.len(), 1);
-        assert_eq!(g2.len(), 2);
     }
 
     #[test]
+    fn graph_test_add_two_vertices() {
+        let mut g1 = Graph::new();
+
+        g1.add_vertex("a".to_string());
+        g1.add_vertex("b".to_string());
+        assert_eq!(g1.len(), 2);
+    }
+
+    #[test]
+    fn graph_test_add_vertices() {
+        let mut g2 = Graph::new();
+
+        g2.add_vertices(vec!["a".to_string(), "b".to_string()].to_owned());
+        assert_eq!(g2.len(), 2);
+    }
+
+
+    #[test]
+    fn graph_test_get_neighbors() {
+        let mut g = Graph::new();
+        g.add_vertices(vec!["a".to_string(), "b".to_string(), 'c'.to_string()].to_owned());
+        g.add_edge(&"a".to_string(), &"b".to_string());
+        let results : HashSet<String> = g.get_all_neighbors("a".to_string());
+
+        let mut expected : HashSet<String> = HashSet::new();
+        expected.insert("b".to_string());
+
+        assert_eq!(results, expected);
+    }
+
+
+    #[test]
+    fn graph_test_get_neighbors_more() {
+        let mut g = Graph::new();
+        g.add_vertices(vec!["a".to_string(), "b".to_string(), 'c'.to_string()].to_owned());
+        g.add_edge(&"a".to_string(), &"b".to_string());
+        g.add_edge(&"a".to_string(), &"c".to_string());
+        let results : HashSet<String> = g.get_all_neighbors("a".to_string());
+
+        let mut expected : HashSet<String> = HashSet::new();
+        expected.insert("c".to_string());
+        expected.insert("b".to_string());
+
+        assert_eq!(results, expected);
+    }
+
+
     // a simple find path test
+    #[test]
     fn graph_test_find_path() {
         let mut g = Graph::new();
         g.add_vertices(vec!["a".to_string(), "b".to_string()].to_owned());
@@ -356,6 +447,5 @@ mod vertex_tests {
         {
             cell2.ptr.borrow_mut().key = "changed".to_string();
         }
-
     }
 }
