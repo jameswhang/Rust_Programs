@@ -14,44 +14,79 @@ pub enum HttpVersion{
     Http09,
 }
 
-pub struct HttpRequest<'a> {
+pub struct HttpRequest {
     method : Option<HttpMethod>,
-    object_url : &'a Path,
-    host : &'a Path,
+    object_url : String,
+    host : String,
     http_version : Option<HttpVersion>,
     headers : HashMap<String, String>,
     raw_request : String,
 }
 
 
-impl<'a, 'b> HttpRequest<'b> {
-    pub fn new_from(request : String) -> Result<HttpRequest<'b>, &'a str> {
+impl HttpRequest {
+    pub fn new() -> HttpRequest {
+            HttpRequest {
+                method : None,
+                object_url: String::new(),
+                host : String::new(),
+                http_version : None,
+                headers : HashMap::new(),
+                raw_request : String::new(),
+            }
+    }
+
+    pub fn new_from(request : String) -> Result<HttpRequest, &'static str> {
         HttpRequest::parse_request(request)
     }
 
-    fn parse_request(request : String) -> Result<HttpRequest<'b>, &'a str> {
-        let line_counter = 0usize;
-        let mut ret : HttpRequest;
+    fn parse_request(request : String) -> Result<HttpRequest, &'static str> {
+        let mut line_counter = 0usize;
+        let mut ret = HttpRequest::new();
+        ret.raw_request = request.clone();
 
         for line in request.lines() {
-            let mut tokens = line.split_whitespace();
+            match line_counter {
+                0 => {
+                    let mut tokens = line.split_whitespace();
 
-            if line_counter == 0 {
-                if tokens.count() != 3 {
-                    return Err("Expected 3 arguments in request line");
-                } else {
+                    if tokens.count() != 3 {
+                        return Err("Invalid number of arguments in request line");
+                    }
+
+                    tokens = line.split_whitespace();
                     ret.method = HttpRequest::parse_method(tokens.nth(0).unwrap());
-                    ret.object_url = Path::new(tokens.nth(1).unwrap());
+                    ret.object_url = tokens.nth(1).unwrap().to_string();
                     ret.http_version = HttpRequest::parse_version(tokens.nth(2).unwrap());
+                },
+
+                _ => {
+                    let mut tokens = line.split(":");
+
+                    if tokens.count() != 2 {
+                        return Err("Invalid header arguments")
+                    }
+
+                    tokens = line.split(":");
+                    let header = tokens.nth(1).unwrap().to_string();
+                    let value = tokens.nth(2).unwrap().to_string();
+
+                    match tokens.nth(1).unwrap() {
+                        "Host" => {
+                                ret.host = value;
+                        },
+
+                        _ => {
+                            ret.headers.insert(header, value);
+                        }
+                    }
                 }
-            } else if line_counter == 1 {
-
-            } else {
-
             }
-        }//end for
 
-        ret
+            line_counter += 1;
+        }//end for line
+
+        Ok(ret)
     }//end parse_request
 
     fn parse_method(method_str : &str) -> Option<HttpMethod> {
