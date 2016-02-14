@@ -1,3 +1,7 @@
+#[doc="
+
+"]
+
 use std::path::Path;
 use std::collections::HashMap;
 
@@ -108,3 +112,33 @@ impl HttpRequest {
         }
     }
 }//end impl HttpParser
+
+#[cfg(test)]
+pub mod http_request_tests {
+
+    #[test]
+    fn parse_test_1() {
+        unimplemented!()
+    }
+
+    #[test]
+    fn parse_test_1() {
+        unimplemented!()
+    }
+
+    #[test]
+    fn parse_test_1() {
+        unimplemented!()
+    }
+
+
+    #[test]
+    fn parse_test_1() {
+        unimplemented!()
+    }
+
+    #[test]
+    fn parse_test_1() {
+        unimplemented!()
+    }
+}
