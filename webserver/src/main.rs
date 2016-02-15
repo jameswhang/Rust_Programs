@@ -2,6 +2,12 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::io::prelude::*;
 
+fn parse_http_request(&mut request: String) {
+    let req = request.clone(); 
+    
+}
+
+
 fn handle_client(mut stream: TcpStream) {
     println!("handling client");
     let mut request: String = "".to_owned();
