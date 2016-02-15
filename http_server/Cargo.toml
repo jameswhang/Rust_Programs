@@ -4,3 +4,4 @@ version = "0.1.0"
 authors = ["Adel Lahlou <adellahlou@users.noreply.github.com>"]
 
 [dependencies]
+http-muncher = "*"
