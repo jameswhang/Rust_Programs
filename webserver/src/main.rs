@@ -1,10 +1,13 @@
+extern crate chrono;
+
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::io::{ErrorKind, Read, Write};
 use std::fs::File;
 use std::env;
+use std::sync::{Arc, Mutex};
 
-
+use chrono::*;
 
 struct Request {
     http_method: String,
@@ -119,7 +122,7 @@ fn make_response(request: &Request, status_code: &str, payload: String) -> Respo
     }
 }
 
-fn handle_client(stream: &mut TcpStream) {
+fn handle_client(stream: &mut TcpStream, log_lock: &Arc<Mutex<File>>) {
     println!("handling client");
     let http_request = read_http_request(stream);
     let req : Request = parse_http_request(http_request);
@@ -129,6 +132,9 @@ fn handle_client(stream: &mut TcpStream) {
         match file_contents {
             Ok(payload) => {
                 resp = make_response(&req, "200", payload);
+                let log_content = make_log(&req, &resp);
+                let mut logfile = log_lock.lock().unwrap();
+                logfile.write(log_content.as_bytes());
                 send_response(stream, resp);
             },
             Err(err_code) => {
@@ -146,6 +152,14 @@ fn handle_client(stream: &mut TcpStream) {
         let resp = make_response(&req, "400", "".to_string());
         send_response(stream, resp);
     }
+}
+
+fn make_log(req: &Request, resp: &Response) -> String {
+    let mut log = "".to_string();
+    log = log + &Local::now().format("%m-%d-%Y %H:%M:%S").to_string() + &"\n";
+    log = log + &"Request: " + &req.http_method + &" " + &req.request_path + &"\n";
+    //log = log + &"Response: " + &resp.status_code + &" " + &resp.content_type = &"\n";
+    return log;
 }
 
 fn send_response(stream: &mut TcpStream, response: Response) {
@@ -178,11 +192,14 @@ fn send_response(stream: &mut TcpStream, response: Response) {
 // accept connections and process them, spawning a new thread each one
 fn main() {
     let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let log = File::create("log.txt").unwrap();
+    let log_lock = Arc::new(Mutex::new(log));
     for stream in listener.incoming() {
         let mut stream = stream.unwrap();
+        let log_lock = log_lock.clone();
         thread::spawn(move || {
             // connection succeeded
-            handle_client(&mut stream)
+            handle_client(&mut stream, &log_lock)
         });
     }
 }
