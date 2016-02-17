@@ -1,6 +1,9 @@
 use std::net::{TcpListener, TcpStream};
 use std::thread;
-use std::io::prelude::*;
+use std::io::{ErrorKind, Read, Write};
+use std::fs::File;
+use std::env;
+
 
 
 struct Request {
@@ -89,6 +92,22 @@ fn get_content_type(path: String) -> String {
     }
 }
 
+fn read_file(file_path: String) -> Result<String, ErrorKind>{
+    let mut server_path = env::current_dir().unwrap();
+    server_path.push(file_path);
+    let mut file = File::open(server_path);
+    match file {
+        Ok(mut file) => {
+            let mut file_content = String::new();
+            file.read_to_string(&mut file_content);
+            Ok(file_content)
+        }
+        Err(e) => {
+            Err(e.kind())
+        }
+    }
+}
+
 fn make_response(request: &Request, status_code: &str, payload: String) -> Response {
     Response {
         protocol: request.protocol.clone(),
@@ -105,10 +124,25 @@ fn handle_client(stream: &mut TcpStream) {
     let http_request = read_http_request(stream);
     let req : Request = parse_http_request(http_request);
     if !req.is_error {
-        let resp = make_response(&req, "200", "HELLO!".to_string());
-        send_response(stream, resp);
+        let file_contents = read_file(req.request_path.clone());
+        let resp: Response;
+        match file_contents {
+            Ok(payload) => {
+                resp = make_response(&req, "200", payload);
+                send_response(stream, resp);
+            },
+            Err(err_code) => {
+                if err_code == ErrorKind::NotFound {
+                    resp = make_response(&req, "404", "".to_string());
+                    send_response(stream, resp);
+                } else if err_code == ErrorKind::PermissionDenied {
+                    resp = make_response(&req, "403", "".to_string());
+                    send_response(stream, resp);
+                }
+            }
+        }
         /*
-        let file_contents = read_from_file(req.request_path.clone());
+        let file_contents = read_file(req.request_path.clone());
         match file_contents
         */
     }
