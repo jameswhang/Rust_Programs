@@ -50,9 +50,9 @@ fn parse_http_request(request: String) -> Request {
     if splits.len() < 3 || splits[0] != "GET" {
         println!("request parse error");
         return Request {
-            http_method: "invalid".to_string(),
-            request_path: "none".to_string(),
-            protocol: "none".to_string(),
+            protocol: "HTTP".to_string(),
+            http_method: "1.1".to_string(),
+            request_path: "".to_string(),
             is_error: true,
         };
     }
@@ -140,11 +140,11 @@ fn handle_client(stream: &mut TcpStream) {
                     send_response(stream, resp);
                 }
             }
-        }
-        /*
-        let file_contents = read_file(req.request_path.clone());
-        match file_contents
-        */
+        } 
+    } else {
+        // 400: Bad Request
+        let resp = make_response(&req, "400", "".to_string());
+        send_response(stream, resp);
     }
 }
 
