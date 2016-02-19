@@ -1,0 +1,182 @@
+#[doc="
+
+
+"]
+
+/// Struct to hold parsed data from HTTP Request
+/// Status codes here are used to hold status. Status is in progress until a response is generated
+/// Used instead of Result with error because bad requests should
+/// still be saved and logged
+pub struct HttpRequest {
+    method: String,
+    request_path: String,
+    protocol: String,
+    status: HttpStatusCode,
+}
+
+/// Struct to hold data being assembled for HTTP Response
+pub struct HttpResponse {
+    protocol: String,
+    method: String,
+    status: HttpStatusCode,
+    content_type: String,
+    content_length: usize,
+    payload: String,
+}
+
+/// A few of the relevant HttpStatusCodes. The ones we want to handle
+#[derive(Clone, PartialEq, Debug)]
+pub enum HttpStatusCode {
+    Nil,
+    OK = 200,
+    BadHttpRequest = 400,
+    Forbidden = 403,
+    NotFound = 404,
+}
+
+
+pub enum HttpMethods {
+    Get,
+    Post,
+    Put,
+    Delete,
+}
+
+impl HttpRequest {
+    /// Parses string from raw string from tcpStream into HttpRequest struct
+    /// A HTTPRequest object is returned instead of an option that way we can
+    /// respond to errors simply.
+    ///
+    /// @param stream : String   The raw String from tcp stream
+    ///
+    /// @return HttpRequest returns parse HttpRequest
+    pub fn new_from(request: String) -> HttpRequest {
+        let splits: Vec<&str> = if let Some(line) = request.lines().nth(0) {
+            line.trim().split(" ").collect()
+        } else {
+            vec![]
+        };
+
+        if splits.len() != 3 || splits[0] != "GET" {
+            return HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            };
+        }
+
+        HttpRequest {
+            method: splits[0].to_string(),
+            request_path: convert_path(splits[1].to_string()),
+            protocol: splits[2].to_string(),
+            status: HttpStatusCode::Nil,
+        }
+    }
+
+    pub fn set_status(&mut self, status : HttpStatusCode) {
+        self.status = status;
+    }
+
+    pub fn get_status(&self) -> HttpStatusCode {
+        self.status.clone()
+    }
+
+    pub fn get_method(&self) -> &String {
+        &self.method
+    }
+
+    pub fn get_path(&self) -> &String {
+        &self.request_path
+    }
+}
+
+
+impl HttpResponse {
+    /// Reads from TcpStream. Blocks until completely read
+    /// @param request : &HttpRequest
+    /// @param status_code : &str
+    /// @param payload : String
+    ///
+    /// @return HttpResponse returns HttpResponse object
+    pub fn new_from(request: &HttpRequest, payload: String) -> HttpResponse {
+        HttpResponse {
+            protocol: request.protocol.clone(),
+            method: request.get_method().clone(),
+            status: request.get_status().clone(),
+            content_type: get_content_type(request.request_path.clone()),
+            content_length: payload.len(),
+            payload: payload,
+        }
+    }
+
+    pub fn get_content_type(&self) -> &String {
+        &self.content_type
+    }
+
+    pub fn get_content_length(&self) -> usize {
+        self.content_length
+    }
+
+    pub fn get_payload(&self) -> &String {
+        &self.payload
+    }
+
+    pub fn get_status(&self) -> HttpStatusCode {
+        self.status.clone()
+    }
+
+    pub fn get_method(&self) -> &String {
+        &self.method
+    }
+
+    pub fn get_protocol(&self) -> &String {
+        &self.protocol
+    }
+
+    pub fn get_status_tag(code : HttpStatusCode) -> String {
+        use self::HttpStatusCode::*;
+
+        match code {
+            OK => "OK".to_string(),
+            BadHttpRequest => "Bad Http Request".to_string(),
+            Forbidden => "Forbidden".to_string(),
+            NotFound => "Not Found".to_string(),
+            _ => "Unknown Error".to_string(),
+        }
+    }
+}
+
+
+/// Used to make the path relative to directory instead of absolute.
+/// Aka removes leading forward slash
+///
+/// @param path : String
+///
+/// @return String returns path string with no leading slash
+fn convert_path(path: String) -> String {
+    match path.find('/') {
+        Some(index) if index == 0 => {
+            let slice = &path[1..];
+            return slice.to_owned();
+        },
+        _ => return path
+    }
+}
+
+
+/// Simply takes string segment after last period in file extension to decipher type
+/// If not html, returns it as plain text.
+///
+/// @param path : String
+///
+/// @return String returns "text/html" or "text/plain"
+fn get_content_type(path: String) -> String {
+    let mut tokens: Vec<&str> = path.split(".").collect();
+    let extension = tokens.pop().unwrap();
+    if extension == "html" {
+        "text/html".to_string()
+    } else {
+        "text/plain".to_string()
+    }
+}

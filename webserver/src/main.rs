@@ -6,34 +6,75 @@
 
 "]
 extern crate chrono;
+extern crate webserver;
 
 use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::io::{ErrorKind, Read, Write};
 use std::fs::File;
 use std::env;
-use std::sync::{Arc, Mutex};
-sh
 
-use chrono::*;
+use webserver::http::{HttpRequest, HttpResponse, HttpStatusCode};
+use webserver::logger::{HttpLogger};
 
-/// Struct to hold parsed data from HTTP Request
-/// is_error signals that values given in Request are not valid
-struct HttpRequest {
-    http_method: String,
-    request_path: String,
-    protocol: String,
-    is_error: bool,
+
+
+/// Starts a TCPListener that will accept connections and if successful
+/// process them and spawn a new thread for each TcpStream
+/// Each thread is given access to an HttpLogger the logs to the same file with mutex access
+fn main() {
+    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+    let logger = HttpLogger::new("log.txt");
+
+    println!("Started adl538-syw973 server!");
+
+    for stream in listener.incoming() {
+        // connection succeeded
+        let mut stream = stream.unwrap();
+        let log_lock = logger.clone();
+
+        thread::spawn(move || {
+            handle_client(&mut stream, &log_lock)
+        });
+    }
 }
 
-/// Struct to hold data being assembled for HTTP Response
-struct HttpResponse {
-    protocol: String,
-    http_method: String,
-    status_code: String,
-    content_type: String,
-    content_length: usize,
-    payload: String,
+/// Called by listener to handle each connection. Reads the http request from the stream,
+/// generates the proper http response, and logs all actions. Logging is sychronous (mutex)
+///
+/// @param stream : &TcpStream
+/// @param log_lock : HttpLogger
+fn handle_client(stream: &mut TcpStream, logger: &HttpLogger) {
+    println!("handling: {:?}", stream.peer_addr().unwrap());
+    let raw_http_request = read_http_request(stream); // blocking
+    let mut req : HttpRequest = HttpRequest::new_from(raw_http_request);
+    let resp: HttpResponse;
+
+    if req.get_status() == HttpStatusCode::BadHttpRequest {
+        resp = HttpResponse::new_from(&req, "".to_string());
+    } else {
+        let file_contents = read_file(req.get_path().clone()); // blocking
+
+        match file_contents {
+            Ok(payload) => {
+                req.set_status(HttpStatusCode::OK);
+                resp = HttpResponse::new_from(&req, payload);
+            },
+
+            Err(err_code) => {
+                if err_code == ErrorKind::NotFound {
+                    req.set_status(HttpStatusCode::NotFound);
+                } else if err_code == ErrorKind::PermissionDenied {
+                    req.set_status(HttpStatusCode::Forbidden);
+                }
+
+                resp = HttpResponse::new_from(&req, "".to_string());
+            }
+        }
+    }
+
+    logger.log_request_response(&req, &resp);
+    send_response(stream, &resp);
 }
 
 /// Reads from TcpStream. Blocks until completely read
@@ -62,74 +103,6 @@ fn read_http_request(stream: &mut TcpStream) -> String {
 }
 
 
-/// Parses string from raw string from tcpStream into HttpRequest struct
-/// A HTTPRequest object is returned instead of an option that way we can
-/// respond to errors simply.
-///
-/// @param stream : String   The raw String from tcp stream
-///
-/// @return HttpRequest returns parse HttpRequest
-fn parse_http_request(request: String) -> HttpRequest {
-    let req = request.clone();
-    println!("{}", req);
-    let splits: Vec<&str> = if let Some(line) = req.lines().nth(0) {
-        line.split(" ").collect()
-    } else {
-        vec![]
-    };
-
-    if splits.len() < 3 || splits[0] != "GET" {
-        println!("request parse error");
-        return HttpRequest {
-            protocol: "HTTP".to_string(),
-            http_method: "1.1".to_string(),
-            request_path: "".to_string(),
-            is_error: true,
-        };
-    }
-
-    return HttpRequest {
-        http_method: splits[0].to_string(),
-        request_path: convert_path(splits[1].to_string()),
-        protocol: splits[2].to_string(),
-        is_error: false,
-    };
-}
-
-
-/// Used to make the path relative to directory instead of absolute.
-/// Aka removes leading forward slash
-///
-/// @param path : String
-///
-/// @return String returns path string with no leading slash
-fn convert_path(path: String) -> String {
-    match path.find('/') {
-        Some(index) if index == 0 => {
-            let slice = &path[1..];
-            return slice.to_owned();
-        },
-        _ => return path
-    }
-}
-
-
-/// Simply takes string segment after last period in file extension to decipher type
-/// If not html, returns it as plain text.
-///
-/// @param path : String
-///
-/// @return String returns "text/html" or "text/plain"
-fn get_content_type(path: String) -> String {
-    let mut tokens: Vec<&str> = path.split(".").collect();
-    let extension = tokens.pop().unwrap();
-    if extension == "html" {
-        "text/html".to_string()
-    } else {
-        "text/plain".to_string()
-    }
-}
-
 
 /// Reads from file if it exists at provided path. Blocks until completely read.
 /// @param file_path : String
@@ -139,7 +112,7 @@ fn read_file(file_path: String) -> Result<String, ErrorKind>{
     let mut server_path = env::current_dir().unwrap();
     server_path.push(file_path);
 
-    let mut file = File::open(server_path);
+    let file = File::open(server_path);
 
     match file {
         Ok(mut file) => {
@@ -154,119 +127,26 @@ fn read_file(file_path: String) -> Result<String, ErrorKind>{
 }
 
 
-/// Reads from TcpStream. Blocks until completely read
-/// @param request : &HttpRequest
-/// @param status_code : &str
-/// @param payload : String
-///
-/// @return HttpResponse returns HttpResponse object
-fn make_response(request: &HttpRequest, status_code: &str, payload: String) -> HttpResponse {
-    HttpResponse {
-        protocol: request.protocol.clone(),
-        http_method: request.http_method.clone(),
-        status_code: status_code.to_string(),
-        content_type: get_content_type(request.request_path.clone()),
-        content_length: payload.len(),
-        payload: payload,
-    }
-}
-
-/// Called by listener to handle each connection. Reads the http request from the stream,
-/// generates the proper http response, and logs all actions. Logging is sychronous (mutex)
-///
-/// @param stream : &TcpStream
-/// @param log_lock : &Arc<Mutex<File>>
-fn handle_client(stream: &mut TcpStream, log_lock: &Arc<Mutex<File>>) {
-    println!("handling client");
-    let http_request = read_http_request(stream); // blocking
-    let req : HttpRequest = parse_http_request(http_request);
-
-    if !req.is_error {
-        let file_contents = read_file(req.request_path.clone()); // blocking
-        let resp: HttpResponse;
-
-        match file_contents {
-            Ok(payload) => {
-                resp = make_response(&req, "200", payload);
-                let log_content = make_log(&req, &resp);
-                let mut logfile = log_lock.lock().unwrap();
-                logfile.write(log_content.as_bytes());
-                send_response(stream, resp);
-            },
-
-            Err(err_code) => {
-                if err_code == ErrorKind::NotFound {
-                    resp = make_response(&req, "404", "".to_string());
-                    send_response(stream, resp);
-                } else if err_code == ErrorKind::PermissionDenied {
-                    //tried to access file server did not have read permission for
-                    resp = make_response(&req, "403", "".to_string());
-                    send_response(stream, resp);
-                }
-            }
-        }
-    } else {
-        // 400: Bad HttpRequest
-        let resp = make_response(&req, "400", "".to_string());
-        send_response(stream, resp); //blocking
-    }
-}
-
-/// Helper function to write into log file
-///
-/// @param req : &HttpRequest
-/// @param resp : &HttpResponse
-fn make_log(req: &HttpRequest, resp: &HttpResponse) -> String {
-    let mut log = "".to_string();
-    log = log + &Local::now().format("%m-%d-%Y %H:%M:%S").to_string() + &"\n";
-    log = log + &"Request: " + &req.http_method + &" " + &req.request_path + &"\n";
-    //log = log + &"Response: " + &resp.status_code + &" " + &resp.content_type = &"\n";
-    return log;
-}
-
 /// Blocking. Sends HttpResponse into stream
 ///
 /// @param stream : &mut TcpStream
 /// @param resp : &HttpResponse
-fn send_response(stream: &mut TcpStream, response: HttpResponse) {
-    let mut response_text: String = "\n".to_string();
-    response_text = response_text + &response.protocol;
-    response_text = response_text + &" ";
-    response_text = response_text + &response.status_code;
-    response_text = response_text + &" ";
+fn send_response(stream: &mut TcpStream, response: &HttpResponse) {
+    println!("", );
+    let mut response_text = format!("\n{} {} {}\n",
+                                        response.get_protocol(),
+                                        response.get_status() as usize,
+                                        HttpResponse::get_status_tag(response.get_status())
+                                    );
 
-    if &response.status_code == &"200" {
-        response_text = response_text + &" OK\n";
-        response_text = response_text + &" adl538-syw973-webserver" + &"\n";
-        response_text = response_text + &"Content-type: " + &response.content_type + &"\n";
-        response_text = response_text + &"Content-length: " + &response.content_length.to_string() + &"\n";
-        response_text = response_text + &"\n\n";
-        response_text = response_text + &response.payload;
-        response_text = response_text + &"\n\n";
-    } else {
-        if &response.status_code == &"404" {
-            response_text = response_text + &" Not Found" + &"\n";
-        } else if &response.status_code == &"400" {
-            response_text = response_text + &" Bad Request" + &"\n";
-        } else if &response.status_code == &"403" {
-            response_text = response_text + &" Forbidden" + &"\n";
-        }
+    if response.get_status() == HttpStatusCode::OK {
+        response_text = response_text +
+            &format!(" Server: adl538-syw973-webserver\n Content-type: {}\n Content-length: {}\n\n\n{}\n\n",
+                            response.get_content_type(),
+                            response.get_content_length(),
+                            response.get_payload()
+                        );
     }
 
     stream.write(response_text.as_bytes());
-}
-
-// accept connections and process them, spawning a new thread for each one
-fn main() {
-    let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
-    let log = File::create("log.txt").unwrap();
-    let log_lock = Arc::new(Mutex::new(log));
-    for stream in listener.incoming() {
-        let mut stream = stream.unwrap();
-        let log_lock = log_lock.clone();
-        thread::spawn(move || {
-            // connection succeeded
-            handle_client(&mut stream, &log_lock)
-        });
-    }
 }
