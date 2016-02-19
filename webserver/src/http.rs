@@ -181,7 +181,7 @@ fn get_content_type(path: String) -> String {
 mod http_tests {
 
     mod http_request_tests {
-        use super::super::{HttpRequest};
+        use super::super::{HttpRequest, HttpStatusCode};
         use super::super::HttpStatusCode::*;
 
         #[test]
@@ -195,7 +195,7 @@ mod http_tests {
         }
 
         #[test]
-        fn from_good1() {
+        fn from_good2() {
             assert_http_eq( "GET Cargo.toml HTTP/1.1", HttpRequest{
                 method: "GET".to_string(),
                 request_path: "Cargo.toml".to_string(),
@@ -205,22 +205,73 @@ mod http_tests {
         }
 
         #[test]
-        fn from_good1() {
-            assert_http_eq( "GET index.html HTTP/1.1", HttpRequest{
+        fn from_good3() {
+            assert_http_eq( "GET Cargo.toml HTTP/1.1\n\n\nRandom Payload", HttpRequest{
                 method: "GET".to_string(),
-                request_path: "index.html".to_string(),
+                request_path: "Cargo.toml".to_string(),
                 protocol: "HTTP/1.1".to_string(),
                 status: Nil,
             });
         }
 
         #[test]
-        fn from_good1() {
-            assert_http_eq( "GET index.html HTTP/1.1", HttpRequest{
+        fn from_good4() {
+            assert_http_eq( "GET Cargo.toml HTTP/1.1\nUnfortunately does not check for abosolute perfection", HttpRequest{
                 method: "GET".to_string(),
-                request_path: "index.html".to_string(),
+                request_path: "Cargo.toml".to_string(),
                 protocol: "HTTP/1.1".to_string(),
                 status: Nil,
+            });
+        }
+
+        #[test]
+        fn from_bad_missing_protocol() {
+            assert_http_eq( "GET index.html", HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            });
+        }
+
+        #[test]
+        fn from_bad_get_only() {
+            assert_http_eq( "POST index.html HTTP/1.1", HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            });
+        }
+
+        #[test]
+        fn from_bad_few_tokens() {
+            assert_http_eq( "", HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            });
+        }
+
+        #[test]
+        fn from_bad_extra_tokens() {
+            assert_http_eq( "GET index.html HTTP/1.0 Extra Words", HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            });
+        }
+
+
+        #[test]
+        fn from_bad_protocol() {
+            assert_http_eq( "GET index.html PoopieProtocol", HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
             });
         }
 
@@ -228,8 +279,105 @@ mod http_tests {
         fn assert_http_eq(raw_request : &str, expected : HttpRequest) {
             assert_eq!(HttpRequest::new_from(raw_request.to_string()), expected);
         }
+
     }
 
 
+    mod http_response_tests {
+        use super::super::{HttpRequest, HttpStatusCode, HttpResponse};
+        use super::super::HttpStatusCode::*;
 
+        #[test]
+        fn from_ok() {
+            assert_http_eq(&HttpRequest{
+                method: "GET".to_string(),
+                request_path: "index.html".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: OK,
+            },
+
+            "".to_string(),
+
+            HttpResponse {
+                method: "GET".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: OK,
+                content_type : "text/html".to_string(),
+                payload : "".to_string(),
+                content_length : 0
+            });
+        }
+
+
+        #[test]
+        fn from_ok_with_payload_not_html() {
+            assert_http_eq(&HttpRequest{
+                method: "GET".to_string(),
+                request_path: "Cargo.toml".to_string(),
+                protocol: "HTTP/1.0".to_string(),
+                status: OK,
+            },
+
+            "test".to_string(),
+
+            HttpResponse {
+                method: "GET".to_string(),
+                protocol: "HTTP/1.0".to_string(),
+                status: OK,
+                content_type : "text/plain".to_string(),
+                payload : "test".to_string(),
+                content_length : 4,
+            });
+        }
+
+
+        #[test]
+        fn from_good_payload_new_protocol() {
+            assert_http_eq(&HttpRequest{
+                method: "GET".to_string(),
+                request_path: "index.html".to_string(),
+                protocol: "HTTP/1.0".to_string(),
+                status: OK,
+            },
+
+            "test".to_string(),
+
+            HttpResponse {
+                method: "GET".to_string(),
+                protocol: "HTTP/1.0".to_string(),
+                status: OK,
+                content_type : "text/html".to_string(),
+                payload : "test".to_string(),
+                content_length : 4
+            });
+        }
+
+        #[test]
+        fn from_bad() {
+            assert_http_eq(
+
+            &HttpRequest {
+                protocol: "HTTP/1.1".to_string(),
+                method: "1.1".to_string(),
+                request_path: "".to_string(),
+                status: HttpStatusCode::BadHttpRequest,
+            },
+
+            "".to_string(),
+
+            HttpResponse {
+                method: "1.1".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: BadHttpRequest,
+                content_type : "text/plain".to_string(),
+                payload : "".to_string(),
+                content_length : 0
+            });
+        }
+
+
+        fn assert_http_eq(req : &HttpRequest, payload : String, expected : HttpResponse) {
+            assert_eq!(HttpResponse::new_from(req, payload), expected);
+        }
+    }
 }
