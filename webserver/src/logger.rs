@@ -36,6 +36,22 @@ impl HttpLogger {
         self.write( format!("{}\n{}\n", req_str, resp_str).as_bytes());
     }
 
+    /// Helper function to write into log file
+    ///
+    /// @param req : &HttpRequest
+    pub fn log_request(&self, req : &HttpRequest) {
+        let req_str = HttpLogger::gen_request_log(req);
+        self.write( format!("{}\n", req_str).as_bytes());
+    }
+
+    /// Helper function to write into log file
+    ///
+    /// @param req : &HttpResponse
+    pub fn log_response(&self, resp : &HttpResponse) {
+        let resp_str = HttpLogger::gen_response_log(resp);
+        self.write( format!("{}\n", resp_str).as_bytes());
+    }
+
 
     fn write(&self, data : &[u8]) {
         let mut logfile = self.0.lock().unwrap();

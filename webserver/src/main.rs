@@ -1,11 +1,52 @@
 #[doc="
     @authors: James Whang (syw973) and Adel Lahlou (adl538)
 
-    Our webserver uses the Rust standard library dominantly, and depends on the chrono crate
-    to timestamp responses.
+    usage: nc localhost 8080
+    GET Cargo.toml HTTP/1.1
 
+    Our webserver uses the Rust standard library except for the chrono crate which is used for
+    generating timestamps for loggger. Our code is organized into the server operations, which
+    are found here in main.rs. The server depends on our http and logger modules.
+
+    Http module exposes two structs (HttpRequest and HttpResponse) and one enum (HttpStatusCode).
+    There was opportunity to go further with a parser, etc. but full support of HTTP was outside
+    the scope of the homework specifications. These structs expose useful static functions that
+    allow us to generate HttpRequest objects from a String, and HttpResponse objects from an
+    HttpRequest object and its payload.
+
+    The logger module exposes HttpLogger which has one field of type Arc<Mutex<File>>. File was
+    chosen for convenience. An HttpLogger is initiliazed with a file path for the logfile, and
+    exposes a three methods to log, log_request, log_response, and log_request_response. These
+    methods use a helper function to generate the log string then call the instance method write.
+    Write acquires the lock to the file and then writes into the file
+
+    The server logic is present in main. It creates a logfile in the current directory with the
+    filename log.txt, overwriting any previous log.txt. It creates a listening socket on port
+    8080 (cuz this is an internet server duh) and accepts all possible connections. Once a
+    connection is accepted, a thread is spawned and enters handle client which implements a basic,
+    non-persistent HTTP connection. Note that each IO operation is blocking, meaning the thread will
+    wait to read from the socket, read from the file, and write into the socket. While responding
+    to a request, the details are logged into log.txt and after responding, the connection is closed.
+
+
+    Comments :
+        - Blocking I/O for read, write files/sockets. Because of threads, a smart scheduler can
+        reduce the blocking penalty but still have to pay the scheduling/switching penalty
+        - Such a server (per the homework spec) pays the thread overhead penalty
+        - Would not be a bad idea to have a thread pool and assign them streams to handle
+        - Not a bad idea to limit number of connections
+
+    Assumptions:
+        - We don't care what version of HTTP it is, even if it is non-existent (HTTP/2.0), as long
+        as it is HTTP we'll accept
+        - We will respond saying we use the same protocol (because that's what a real server would do)
+        but we don't actually
+        - We only handle the GET method. Anything else is an error
+        - We don't handle request headers
+        - All bad http requests are responded to with HTTP/1.1
+        - We don't have to limit number of connections
+        - If server process cant access file, then it's forbidden to user (403)
 "]
-extern crate chrono;
 extern crate webserver;
 
 use std::net::{TcpListener, TcpStream};
