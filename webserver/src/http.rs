@@ -52,7 +52,7 @@ impl HttpRequest {
             vec![]
         };
 
-        if splits.len() != 3 || splits[0] != "GET" {
+        if splits.len() != 3 || splits[0] != "GET" || !splits[2].contains("HTTP")  {
             return HttpRequest {
                 protocol: "HTTP/1.1".to_string(),
                 method: "1.1".to_string(),
