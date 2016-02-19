@@ -7,7 +7,7 @@
 /// Status codes here are used to hold status. Status is in progress until a response is generated
 /// Used instead of Result with error because bad requests should
 /// still be saved and logged
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct HttpRequest {
     method: String,
     request_path: String,
@@ -16,7 +16,7 @@ pub struct HttpRequest {
 }
 
 /// Struct to hold data being assembled for HTTP Response
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct HttpResponse {
     protocol: String,
     method: String,
@@ -181,16 +181,52 @@ fn get_content_type(path: String) -> String {
 mod http_tests {
 
     mod http_request_tests {
-        use super::super::{HttpRequest, HttpStatusCode};
+        use super::super::{HttpRequest};
+        use super::super::HttpStatusCode::*;
 
         #[test]
         fn from_good1() {
-            assert_http_eq( "GET index.html HTTP/1.1")
+            assert_http_eq( "GET index.html HTTP/1.1", HttpRequest{
+                method: "GET".to_string(),
+                request_path: "index.html".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: Nil,
+            });
+        }
+
+        #[test]
+        fn from_good1() {
+            assert_http_eq( "GET Cargo.toml HTTP/1.1", HttpRequest{
+                method: "GET".to_string(),
+                request_path: "Cargo.toml".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: Nil,
+            });
+        }
+
+        #[test]
+        fn from_good1() {
+            assert_http_eq( "GET index.html HTTP/1.1", HttpRequest{
+                method: "GET".to_string(),
+                request_path: "index.html".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: Nil,
+            });
+        }
+
+        #[test]
+        fn from_good1() {
+            assert_http_eq( "GET index.html HTTP/1.1", HttpRequest{
+                method: "GET".to_string(),
+                request_path: "index.html".to_string(),
+                protocol: "HTTP/1.1".to_string(),
+                status: Nil,
+            });
         }
 
 
         fn assert_http_eq(raw_request : &str, expected : HttpRequest) {
-            assert_eq!(HttpRequest::new_from(raw_request), expected);
+            assert_eq!(HttpRequest::new_from(raw_request.to_string()), expected);
         }
     }
 
