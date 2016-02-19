@@ -185,12 +185,15 @@ mod http_tests {
 
         #[test]
         fn from_good1() {
-            unimplemented!()
+            assert_http_eq( "GET index.html HTTP/1.1")
         }
 
 
-        fn assert_http_eq() {
-
+        fn assert_http_eq(raw_request : &str, expected : HttpRequest) {
+            assert_eq!(HttpRequest::new_from(raw_request), expected);
         }
     }
+
+
+
 }

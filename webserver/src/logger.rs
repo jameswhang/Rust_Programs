@@ -33,7 +33,7 @@ impl HttpLogger {
     pub fn log_request_response(&self, req : &HttpRequest, resp : &HttpResponse) {
         let req_str = HttpLogger::gen_request_log(req);
         let resp_str = HttpLogger::gen_response_log(resp);
-        self.write( format!("{}\n{}", req_str, resp_str).as_bytes());
+        self.write( format!("{}\n{}\n", req_str, resp_str).as_bytes());
     }
 
 
@@ -52,9 +52,10 @@ impl HttpLogger {
 
     fn gen_response_log(resp: &HttpResponse) -> String {
         let date = &Local::now().format("%m-%d-%Y %H:%M:%S").to_string();
-        format!("{date}: RESPONSE - {status_code} {content_type}",
+        format!("{date}: RESPONSE - {status_code} {tag} {content_type}",
                                                         date=date,
-                                                        status_code=resp.get_method(),
+                                                        status_code=resp.get_status() as usize,
+                                                        tag=HttpResponse::get_status_tag(resp.get_status()),
                                                         content_type=resp.get_content_type())
     }
 
