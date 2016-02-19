@@ -7,6 +7,7 @@
 /// Status codes here are used to hold status. Status is in progress until a response is generated
 /// Used instead of Result with error because bad requests should
 /// still be saved and logged
+#[derive(PartialEq)]
 pub struct HttpRequest {
     method: String,
     request_path: String,
@@ -15,6 +16,7 @@ pub struct HttpRequest {
 }
 
 /// Struct to hold data being assembled for HTTP Response
+#[derive(PartialEq)]
 pub struct HttpResponse {
     protocol: String,
     method: String,
@@ -34,13 +36,6 @@ pub enum HttpStatusCode {
     NotFound = 404,
 }
 
-
-pub enum HttpMethods {
-    Get,
-    Post,
-    Put,
-    Delete,
-}
 
 impl HttpRequest {
     /// Parses string from raw string from tcpStream into HttpRequest struct
@@ -178,5 +173,24 @@ fn get_content_type(path: String) -> String {
         "text/html".to_string()
     } else {
         "text/plain".to_string()
+    }
+}
+
+
+#[cfg(test)]
+mod http_tests {
+
+    mod http_request_tests {
+        use super::super::{HttpRequest, HttpStatusCode};
+
+        #[test]
+        fn from_good1() {
+            unimplemented!()
+        }
+
+
+        fn assert_http_eq() {
+
+        }
     }
 }
